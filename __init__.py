@@ -280,6 +280,7 @@ class SEHWidget(QWidget, UIContextNotification):
                     if all([symbol, symbol.name, not symbol.name.startswith("sub_")]):
                         self.unwind_handler_name.setText(f"{symbol.name} @ 0x{handler_addr:x}")
             else:
+                self.unwind_handler_name.clear()
                 self.unwind_exception_handler.clear()
 
     @staticmethod

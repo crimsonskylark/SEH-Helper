@@ -86,6 +86,11 @@ class SEHWidget(QWidget, UIContextNotification):
 
         header_layout = QHBoxLayout()
 
+        self.show_handler_name = QCheckBox()
+        handler_name_layout = QHBoxLayout()
+        handler_name_layout.addWidget(QLabel("Show handler name: "))
+        handler_name_layout.addWidget(self.show_handler_name)
+
         self.follow_cb = QCheckBox()
         follow_layout = QHBoxLayout()
         follow_layout.addWidget(QLabel("Follow Cursor: "))
@@ -97,6 +102,7 @@ class SEHWidget(QWidget, UIContextNotification):
 
         header_layout.addWidget(goto_button)
         header_layout.addStretch()
+        header_layout.addLayout(handler_name_layout)
         header_layout.addLayout(follow_layout)
 
         self.begin_addr = AddrLabel(None, bv)
@@ -124,6 +130,7 @@ class SEHWidget(QWidget, UIContextNotification):
         self.unwind_codes = QTextEdit()
         self.unwind_codes.setReadOnly(True)
         self.unwind_exception_handler = AddrLabel(None, bv)
+        self.unwind_handler_name = QLabel("")
 
         title = QLabel("Unwind Info")
         title.setAlignment(QtCore.Qt.AlignCenter)
@@ -141,9 +148,12 @@ class SEHWidget(QWidget, UIContextNotification):
 
         unwind_exception_handler_layout = QHBoxLayout()
         unwind_exception_handler_layout.addWidget(
-            QLabel("Exception Handler: "))
+            QLabel("Exception Handler: "))        
+        unwind_exception_handler_layout.addWidget(
+            self.unwind_handler_name)
         unwind_exception_handler_layout.addWidget(
             self.unwind_exception_handler)
+            
         unwind_layout.addLayout(unwind_exception_handler_layout)
 
         unwind_prolog_size_layout = QHBoxLayout()
@@ -212,6 +222,7 @@ class SEHWidget(QWidget, UIContextNotification):
             self.unwind_frame_offset.clear()
             self.unwind_codes.clear()
             self.unwind_exception_handler.clear()
+            self.unwind_handler_name.clear()
         else:
             self.begin_addr.setAddr(
                 self.file.OPTIONAL_HEADER.ImageBase + clickedItem.entry.struct.BeginAddress)
@@ -221,7 +232,6 @@ class SEHWidget(QWidget, UIContextNotification):
                 self.file.OPTIONAL_HEADER.ImageBase + clickedItem.entry.struct.UnwindData)
 
             self.unwind_version.setText(str(clickedItem.entry.unwindinfo.Version))
-
 
             unwind_flags = []
             if clickedItem.entry.unwindinfo.Flags == 0:
@@ -254,9 +264,21 @@ class SEHWidget(QWidget, UIContextNotification):
                 codes += str(x) + '\n'
             self.unwind_codes.setText(codes)
 
+            self.unwind_handler_name.setHidden(not self.show_handler_name.isChecked())
+            self.unwind_exception_handler.setHidden(self.unwind_handler_name.isVisible())
+
+            self.adjustSize()
+
             if hasattr(clickedItem.entry.unwindinfo, 'ExceptionHandler'):
-                self.unwind_exception_handler.setAddr(
-                    self.file.OPTIONAL_HEADER.ImageBase + clickedItem.entry.unwindinfo.ExceptionHandler)
+                handler_addr = self.file.OPTIONAL_HEADER.ImageBase + clickedItem.entry.unwindinfo.ExceptionHandler
+                
+                if self.unwind_handler_name.isHidden():
+                    self.unwind_exception_handler.setAddr(
+                        handler_addr)
+                else:
+                    symbol = self.bv.get_symbol_at(handler_addr)
+                    if all([symbol, symbol.name, not symbol.name.startswith("sub_")]):
+                        self.unwind_handler_name.setText(f"{symbol.name} @ 0x{handler_addr:x}")
             else:
                 self.unwind_exception_handler.clear()
 

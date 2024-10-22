@@ -6,7 +6,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QLabel, QWidget, QListWidget, QListWidgetItem, QTextEdit, QCheckBox, QPushButton
 from PySide6.QtGui import QMouseEvent
 
-
 class SEHListItem(QListWidgetItem):
     def __init__(self, base: int, entry: ExceptionsDirEntryData):
         self.entry = entry
@@ -130,7 +129,7 @@ class SEHWidget(QWidget, UIContextNotification):
         self.unwind_codes = QTextEdit()
         self.unwind_codes.setReadOnly(True)
         self.unwind_exception_handler = AddrLabel(None, bv)
-        self.unwind_handler_name = QLabel("")
+        self.unwind_handler_name = AddrLabel(None, bv)
 
         title = QLabel("Unwind Info")
         title.setAlignment(QtCore.Qt.AlignCenter)
@@ -214,6 +213,7 @@ class SEHWidget(QWidget, UIContextNotification):
             self.begin_addr.setAddr(None)
             self.end_addr.setAddr(None)
             self.unwind_addr.setAddr(None)
+            self.unwind_handler_name.setAddr(None)
             self.unwind_version.clear()
             self.unwind_flags.clear()
             self.unwind_prolog_size.clear()
@@ -222,7 +222,6 @@ class SEHWidget(QWidget, UIContextNotification):
             self.unwind_frame_offset.clear()
             self.unwind_codes.clear()
             self.unwind_exception_handler.clear()
-            self.unwind_handler_name.clear()
         else:
             self.begin_addr.setAddr(
                 self.file.OPTIONAL_HEADER.ImageBase + clickedItem.entry.struct.BeginAddress)
@@ -271,14 +270,16 @@ class SEHWidget(QWidget, UIContextNotification):
 
             if hasattr(clickedItem.entry.unwindinfo, 'ExceptionHandler'):
                 handler_addr = self.file.OPTIONAL_HEADER.ImageBase + clickedItem.entry.unwindinfo.ExceptionHandler
-                
-                if self.unwind_handler_name.isHidden():
+                symbol = self.bv.get_symbol_at(handler_addr)
+
+                if self.unwind_handler_name.isHidden() or symbol.name.startswith("sub_"):
                     self.unwind_exception_handler.setAddr(
                         handler_addr)
                 else:
-                    symbol = self.bv.get_symbol_at(handler_addr)
-                    if all([symbol, symbol.name, not symbol.name.startswith("sub_")]):
-                        self.unwind_handler_name.setText(f"{symbol.name} @ 0x{handler_addr:x}")
+                    if all([symbol, symbol.name]):
+                        self.unwind_handler_name.setOptText(
+                        f"{symbol.name} @ ")
+                        self.unwind_handler_name.setAddr(handler_addr)
             else:
                 self.unwind_handler_name.clear()
                 self.unwind_exception_handler.clear()
